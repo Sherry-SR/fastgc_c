@@ -30,3 +30,12 @@
 *.exe
 *.out
 *.app
+
+# some folders
+/results/*
+.pytest_cache/*
+.vscode/*
+growcut_fast.egg-info/*
+build/*
+tmp/*
+/tests/__pycache__/*
