@@ -112,13 +112,13 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
         // for neSweg, use copy seed label as current label
         copy(seeds.cbegin(), seeds.cend(), labCrt.begin());
         // distCrt=0 at seeds, distCrt=np.inf elsewhere
-        distCrt.fill(INFINITY);
+        distCrt.fill(numeric_limits<double>::infinity());
         filtration(distCrt, seeds > 0) = 0.;
     }
     else
     {
         labCrt.fill(0.);
-        distCrt.fill(INFINITY);
+        distCrt.fill(numeric_limits<double>::infinity());
         // if not newSeg, only use the seeds with different labels from labPre
         mask = seeds > 0 && xt::not_equal(seeds, labPre);
         // update labCrt with seed label
@@ -192,9 +192,7 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
             for (int d = 0; d < dim; d++) psv_n.push_back(neighbours[i][d]);
 
             auto view_dc_n = xt::strided_view(distCrt, psv_n);
-            auto view_dp_n = xt::strided_view(distPre, psv_n);
             auto view_lc_n = xt::strided_view(labCrt, psv_n);
-            auto view_lp_n = xt::strided_view(labPre, psv_n);
             auto view_img_n = xt::strided_view(img, psv_n);
             auto node_n = heapNodes[pidx];
 
@@ -211,7 +209,7 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
     if (!newSeg)
     {
         // get updated points
-        mask = labCrt < INFINITY;
+        mask = labCrt < numeric_limits<double>::infinity();
         // update local states
         auto view_dc = xt::filter(distCrt, mask);
         auto view_dp = xt::filter(distPre, mask);
