@@ -18,9 +18,11 @@ def test_growcut_fast():
     savepath = "/home/SENSETIME/shenrui/Dropbox/SenseTime/fastgc_c/results"
 
     img = nib.load(imgpath)
-    imgdata = img.get_fdata()[420:500, 130:220, 223:230]
+    imgdata = img.get_fdata()[420:500, 130:220, 220:230]
+    #imgdata = img.get_fdata()[420:430, 130:140, 223:230]
     label = nib.load(labelpath)
-    labeldata = label.get_fdata()[420:500, 130:220, 223:230]
+    labeldata = label.get_fdata()[420:500, 130:220, 220:230]
+    #labeldata = label.get_fdata()[420:430, 130:140, 223:230]
     seedsdata = np.zeros(labeldata.shape)
 
     nlabels = np.unique(labeldata)
@@ -33,10 +35,10 @@ def test_growcut_fast():
     labPre = np.zeros(labeldata.shape)
     distPre = np.zeros(labeldata.shape)
 
-    labCrt = growcut_fast.growcut_cpu(imgdata, seedsdata, labPre, distPre, True, False)
-    nib.save(nib.Nifti1Image(imgdata, img.affine), join(savepath, "original_img.nii.gz"))
-    nib.save(nib.Nifti1Image(labeldata, img.affine), join(savepath, "original_label.nii.gz"))
-    nib.save(nib.Nifti1Image(seedsdata, img.affine), join(savepath, "seedsdata.nii.gz"))
-    nib.save(nib.Nifti1Image(labPre, img.affine), join(savepath, "fast_growcut_results.nii.gz"))
+    labPre = growcut_fast.growcut_cpu(imgdata, seedsdata, labPre, distPre, True, True)
+    nib.save(nib.Nifti1Image(imgdata.astype(float), img.affine), join(savepath, "original_img.nii.gz"))
+    nib.save(nib.Nifti1Image(labeldata.astype(float), img.affine), join(savepath, "original_label.nii.gz"))
+    nib.save(nib.Nifti1Image(seedsdata.astype(float), img.affine), join(savepath, "seedsdata.nii.gz"))
+    nib.save(nib.Nifti1Image(labPre.astype(float), img.affine), join(savepath, "fast_growcut_results.nii.gz"))
 
-test_growcut_fast()
+test_growcut_fast() 

@@ -135,7 +135,7 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
     mask = get_img_neighbours(mask);
 
     auto idx = xt::from_indices(xt::nonzero(mask));
-    
+
     map<vector<int>, node<double, tuple<vector<int>, xt::xstrided_slice_vector> >*> heapNodes;
 
     for (int i = 0; i < idx.shape()[1]; i++){
@@ -146,41 +146,51 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
             pidx.push_back(idx(d, i));
         }
         auto view_d = xt::strided_view(distCrt, psv);
-        double key = view_d.data()[0];
+        double key;
+        copy(view_d.cbegin(), view_d.cbegin()+1, &key);
         heapNodes.insert(make_pair(pidx, fh.insert(key, make_tuple(pidx, psv))));
     }
 
     int count = 0;
+
     // segmentation/refinement loop
     while (!fh.isEmpty()){
         auto pnode = fh.getMinimumNode();
         auto pinfo = pnode -> getValue();
         auto pidx = get<0>(pinfo);
         auto psv = get<1>(pinfo);
+        if (verbose) cout<<"extracting node"<<endl;
         fh.removeMinimum();
-
+        if (verbose) cout<<"updating node"<<endl;
         auto view_dc = xt::strided_view(distCrt, psv);
+        double distCrt_p;
+        copy(view_dc.cbegin(), view_dc.cbegin()+1, &distCrt_p);
+
         auto view_dp = xt::strided_view(distPre, psv);
+        double distPre_p;
+        copy(view_dp.cbegin(), view_dp.cbegin()+1, &distPre_p);
+        
         auto view_lc = xt::strided_view(labCrt, psv);
+        double labCrt_p;
+        copy(view_lc.cbegin(), view_lc.cbegin()+1, &labCrt_p);
+
         auto view_lp = xt::strided_view(labPre, psv);
+        double labPre_p;
+        copy(view_lp.cbegin(), view_lp.cbegin()+1, &labPre_p);
+        
         auto view_img = xt::strided_view(img, psv);
+        double img_p;
+        copy(view_img.cbegin(), view_img.cbegin()+1, &img_p);
 
         if (!newSeg)
         {
-            if (isinf(view_dc.data()[0])) break;
-            if (view_dc.data()[0] > view_dp.data()[0])
+            if (isinf(distCrt_p)) break;
+            if (distCrt_p > distPre_p)
             {
-                view_dc = view_dp.data()[0];
-                view_lc = view_lp.data()[0];
+                view_dc = distPre_p;
+                view_lc = labPre_p;
                 continue;
             }
-        }
-        if (verbose)
-        {
-            // regular dijkstra
-            cout<<"-----------Dijkastra-----------"<<endl;
-            cout<<"Current point: "<< count <<"\t Distance from seed: "<<view_dc.data()[0]<<"\t Seed Label: "<<view_lc.data()[0]<<endl;
-            count++;
         }
 
         vector<int> vector_shape;
@@ -192,20 +202,38 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
             for (int d = 0; d < dim; d++) psv_n.push_back(neighbours[i][d]);
 
             auto view_dc_n = xt::strided_view(distCrt, psv_n);
-            auto view_lc_n = xt::strided_view(labCrt, psv_n);
-            auto view_img_n = xt::strided_view(img, psv_n);
-            auto node_n = heapNodes[pidx];
+            double distCrt_pn;
+            copy(view_dc_n.cbegin(), view_dc_n.cbegin()+1, &distCrt_pn);
 
-            double dist = view_dc.data()[0] + sqrt(pow(view_img_n.data()[0] - view_img.data()[0],2));
-            if (dist < view_dc_n.data()[0])
+            auto view_lc_n = xt::strided_view(labCrt, psv_n);
+            double labCrt_pn;
+            copy(view_lc_n.cbegin(), view_lc_n.cbegin()+1, &labCrt_pn);
+
+            auto view_img_n = xt::strided_view(img, psv_n);
+            double img_pn;
+            copy(view_img_n.cbegin(), view_img_n.cbegin()+1, &img_pn);
+
+            auto node_n = heapNodes[pidx];
+            double dist = distCrt_p + sqrt(pow(img_pn - img_p,2));
+            if (dist < distCrt_pn)
             {
                 view_dc_n = dist;
-                view_lc_n = view_lc.data()[0];
+                view_lc_n = labCrt_p;
                 // update fiponacci heap
                 fh.decreaseKey(node_n, dist);
             }
         }
+
+        if (verbose)
+        {
+            // regular dijkstra
+            cout<<"-----------Dijkastra-----------"<<endl;
+            cout<<"Current point: "<< count <<"\t Distance from seed: "<<distCrt_p<<"\t Seed Label: "<<labCrt_p<<endl;
+            count++;
+        }
     }
+    cout << "segmentation finished!" << endl;
+
     if (!newSeg)
     {
         // get updated points

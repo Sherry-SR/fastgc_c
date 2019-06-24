@@ -40,3 +40,4 @@ growcut_fast.egg-info/*
 build/*
 tmp/*
 /tests/__pycache__/*
+/dist/*
