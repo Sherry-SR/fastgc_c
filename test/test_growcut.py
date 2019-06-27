@@ -13,32 +13,33 @@ sys.path.append(abspath(join(dirname(__file__),'..')))
 import growcut_fast
 
 def test_growcut_fast():
+
     imgpath = "/home/SENSETIME/shenrui/Dropbox/SenseTime/data/teeth0001.nii.gz"
     labelpath = "/home/SENSETIME/shenrui/Dropbox/SenseTime/data/teeth0001_label_tri.nii.gz"
     savepath = "/home/SENSETIME/shenrui/Dropbox/SenseTime/fastgc_c/results"
 
     img = nib.load(imgpath)
-    imgdata = img.get_fdata()[420:500, 130:220, 220:230]
-    #imgdata = img.get_fdata()[420:430, 130:140, 223:230]
+    imgdata = np.squeeze(img.get_fdata()[120:580, 10:350, 110:340])
     label = nib.load(labelpath)
-    labeldata = label.get_fdata()[420:500, 130:220, 220:230]
-    #labeldata = label.get_fdata()[420:430, 130:140, 223:230]
+    labeldata = np.squeeze(label.get_fdata()[120:580, 10:350, 110:340])
     seedsdata = np.zeros(labeldata.shape)
 
     nlabels = np.unique(labeldata)
     for i in nlabels:
         mask = labeldata == i
-        mask = binary_erosion(mask)
-        mask = binary_erosion(mask)
+        for j in range(labeldata.shape[2]):
+            mask[:,:,j] = binary_erosion(mask[:,:,j])
+            mask[:,:,j] = binary_erosion(mask[:,:,j])
         seedsdata = seedsdata + mask * (i+1)
     
     labPre = np.zeros(labeldata.shape)
     distPre = np.zeros(labeldata.shape)
 
     labPre = growcut_fast.growcut_cpu(imgdata, seedsdata, labPre, distPre, True, True)
-    nib.save(nib.Nifti1Image(imgdata.astype(float), img.affine), join(savepath, "original_img.nii.gz"))
-    nib.save(nib.Nifti1Image(labeldata.astype(float), img.affine), join(savepath, "original_label.nii.gz"))
-    nib.save(nib.Nifti1Image(seedsdata.astype(float), img.affine), join(savepath, "seedsdata.nii.gz"))
-    nib.save(nib.Nifti1Image(labPre.astype(float), img.affine), join(savepath, "fast_growcut_results.nii.gz"))
+    nib.save(nib.Nifti1Image(imgdata.astype(float), img.affine), join(savepath, "original_img_teeth.nii.gz"))
+    nib.save(nib.Nifti1Image(labeldata.astype(float), img.affine), join(savepath, "original_label_teeth.nii.gz"))
+    nib.save(nib.Nifti1Image(seedsdata.astype(float), img.affine), join(savepath, "seedsdata_teeth.nii.gz"))
+    nib.save(nib.Nifti1Image(labPre.astype(float), img.affine), join(savepath, "fast_growcut_results_teeth.nii.gz"))
+    print("results saved!")
 
 test_growcut_fast() 

@@ -2,7 +2,6 @@
 #include <math.h>
 #include <vector>
 
-//#include "boost/heap/fibonacci_heap.hpp"
 #include "pybind11/pybind11.h"
 #include "xtensor-python/pyarray.hpp"
 #include "xtensor-python/pytensor.hpp"
@@ -17,4 +16,3 @@
 
 using namespace std;
 namespace py = pybind11;
-

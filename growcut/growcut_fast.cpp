@@ -5,13 +5,18 @@ template <class T>
 using ndarray = xt::pyarray<T>;
 
 void print2d(vector<vector<int> > &vec){
-	for (int i = 0; i < vec.size(); i++)
-	{
+	for (int i = 0; i < vec.size(); i++){
 		for (int j = 0; j < vec[i].size(); j++)
 		{
 			cout<<vec[i][j]<<'\t';
 		}
 		cout<<endl;
+	}
+}
+
+void print1d(vector<int> &vec){
+	for (int i = 0; i < vec.size(); i++){
+		cout<<vec[i]<<'\t';
 	}
 }
 
@@ -40,7 +45,7 @@ vector<vector<int> > get_p_neighbours(vector<int> p, vector<int> shape, bool exc
 	vector<vector<int> > offsets = get_offsets(dim);
 	vector<vector<int> > neighbours;
 	if (exclude_p) offsets.erase(offsets.begin());
-	
+
 	for (int i = 0; i < offsets.size(); i++)
 	{
 		vector<int> temp(dim, 0);
@@ -129,16 +134,17 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
     }
 
     // initialzation of fibonacci heap
-    FibonacciHeap<double, tuple<vector<int>, xt::xstrided_slice_vector> > fh;
+    FibonacciHeap<double, vector<int> > fh;
     // choose non-labeled pixels and their neighbors as heap nodes
     mask = xt::equal(labCrt, 0);
     mask = get_img_neighbours(mask);
 
     auto idx = xt::from_indices(xt::nonzero(mask));
 
-    map<vector<int>, node<double, tuple<vector<int>, xt::xstrided_slice_vector> >*> heapNodes;
+    map<vector<int>, node<double, vector<int> >*> heapNodes;
 
-    for (int i = 0; i < idx.shape()[1]; i++){
+    int Ntotal = idx.shape()[1];
+    for (int i = 0; i < Ntotal; i++){
         xt::xstrided_slice_vector psv;
         vector<int> pidx;
         for (int d = 0; d < dim; d++){
@@ -148,7 +154,7 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
         auto view_d = xt::strided_view(distCrt, psv);
         double key;
         copy(view_d.cbegin(), view_d.cbegin()+1, &key);
-        heapNodes.insert(make_pair(pidx, fh.insert(key, make_tuple(pidx, psv))));
+        heapNodes.insert(make_pair(pidx, fh.insert(key, pidx)));
     }
 
     int count = 0;
@@ -156,9 +162,11 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
     // segmentation/refinement loop
     while (!fh.isEmpty()){
         auto pnode = fh.getMinimumNode();
-        auto pinfo = pnode -> getValue();
-        auto pidx = get<0>(pinfo);
-        auto psv = get<1>(pinfo);
+        auto pidx = pnode -> getValue();
+
+        xt::xstrided_slice_vector psv;
+        for (int d = 0; d < dim; d++) psv.push_back(pidx[d]);
+
         if (verbose) cout<<"extracting node"<<endl;
         fh.removeMinimum();
         if (verbose) cout<<"updating node"<<endl;
@@ -193,13 +201,23 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
             }
         }
 
+        if (verbose)
+        {
+            // regular dijkstra
+            cout << "-----------Dijkstra-----------" << endl;
+            cout << count << "/" << Ntotal <<"\t Distance from seed: "<<distCrt_p<<"\t Seed Label: "<<labCrt_p<<endl;
+            count++;
+        }
+
         vector<int> vector_shape;
         for (int d = 0; d < dim; d++) vector_shape.push_back(shape[d]);
         auto neighbours = get_p_neighbours(pidx, vector_shape, true);
         for (int i = 0; i < neighbours.size(); i++)
         {
+            auto pidx_n = neighbours[i];
+
             xt::xstrided_slice_vector psv_n;
-            for (int d = 0; d < dim; d++) psv_n.push_back(neighbours[i][d]);
+            for (int d = 0; d < dim; d++) psv_n.push_back(pidx_n[d]);
 
             auto view_dc_n = xt::strided_view(distCrt, psv_n);
             double distCrt_pn;
@@ -213,23 +231,15 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
             double img_pn;
             copy(view_img_n.cbegin(), view_img_n.cbegin()+1, &img_pn);
 
-            auto node_n = heapNodes[pidx];
             double dist = distCrt_p + sqrt(pow(img_pn - img_p,2));
             if (dist < distCrt_pn)
             {
                 view_dc_n = dist;
                 view_lc_n = labCrt_p;
                 // update fiponacci heap
-                fh.decreaseKey(node_n, dist);
+                if (verbose) cout << "updating distance " << distCrt_p << " with " << dist << endl;
+                fh.decreaseKey(heapNodes[pidx_n], dist);
             }
-        }
-
-        if (verbose)
-        {
-            // regular dijkstra
-            cout<<"-----------Dijkastra-----------"<<endl;
-            cout<<"Current point: "<< count <<"\t Distance from seed: "<<distCrt_p<<"\t Seed Label: "<<labCrt_p<<endl;
-            count++;
         }
     }
     cout << "segmentation finished!" << endl;
