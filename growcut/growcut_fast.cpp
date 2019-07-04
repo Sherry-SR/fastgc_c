@@ -106,8 +106,9 @@ ndarray<double> get_img_neighbours(ndarray<double> const& mask){
 }
 
 ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& seeds, ndarray<double> &labPre, ndarray<double> &distPre, bool newSeg = true, bool verbose = true){
-    auto dim = img.dimension();
-    auto shape = img.shape();
+    auto dim = seeds.dimension();
+    auto shape = seeds.shape();
+    double feature_num = (img.shape()).back();
 
     auto labCrt = ndarray<double>::from_shape(shape);
     auto distCrt = ndarray<double>::from_shape(shape);
@@ -133,6 +134,7 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
         filtration(distCrt, mask) = 0;
     }
 
+    if (verbose) cout<<"initialzing heap"<<endl;
     // initialzation of fibonacci heap
     FibonacciHeap<double, vector<int> > fh;
     // choose non-labeled pixels and their neighbors as heap nodes
@@ -152,11 +154,9 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
             pidx.push_back(idx(d, i));
         }
         auto view_d = xt::strided_view(distCrt, psv);
-        double key;
-        copy(view_d.cbegin(), view_d.cbegin()+1, &key);
-        heapNodes.insert(make_pair(pidx, fh.insert(key, pidx)));
+        heapNodes.insert(make_pair(pidx, fh.insert(*view_d.cbegin(), pidx)));
     }
-
+    if (verbose) cout<<"initialzation finished"<<endl;
     int count = 0;
 
     // segmentation/refinement loop
@@ -164,31 +164,29 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
         auto pnode = fh.getMinimumNode();
         auto pidx = pnode -> getValue();
 
-        xt::xstrided_slice_vector psv;
-        for (int d = 0; d < dim; d++) psv.push_back(pidx[d]);
+        xt::xstrided_slice_vector psv, psv_img;
+        for (int d = 0; d < dim; d++){
+            psv.push_back(pidx[d]);
+            psv_img.push_back(pidx[d]);
+        }
+        if (dim < img.dimension()) psv_img.push_back(xt::all());
 
         if (verbose) cout<<"extracting node"<<endl;
         fh.removeMinimum();
         if (verbose) cout<<"updating node"<<endl;
         auto view_dc = xt::strided_view(distCrt, psv);
-        double distCrt_p;
-        copy(view_dc.cbegin(), view_dc.cbegin()+1, &distCrt_p);
+        double distCrt_p = *view_dc.cbegin();
 
         auto view_dp = xt::strided_view(distPre, psv);
-        double distPre_p;
-        copy(view_dp.cbegin(), view_dp.cbegin()+1, &distPre_p);
+        double distPre_p = *view_dp.cbegin();
         
         auto view_lc = xt::strided_view(labCrt, psv);
-        double labCrt_p;
-        copy(view_lc.cbegin(), view_lc.cbegin()+1, &labCrt_p);
+        double labCrt_p = *view_lc.cbegin();
 
         auto view_lp = xt::strided_view(labPre, psv);
-        double labPre_p;
-        copy(view_lp.cbegin(), view_lp.cbegin()+1, &labPre_p);
-        
-        auto view_img = xt::strided_view(img, psv);
-        double img_p;
-        copy(view_img.cbegin(), view_img.cbegin()+1, &img_p);
+        double labPre_p = *view_lp.cbegin();
+
+        auto view_img = xt::strided_view(img, psv_img);
 
         if (!newSeg)
         {
@@ -216,22 +214,25 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
         {
             auto pidx_n = neighbours[i];
 
-            xt::xstrided_slice_vector psv_n;
-            for (int d = 0; d < dim; d++) psv_n.push_back(pidx_n[d]);
+            xt::xstrided_slice_vector psv_n, psv_n_img;
+            for (int d = 0; d < dim; d++){
+                psv_n.push_back(pidx_n[d]);
+                psv_n_img.push_back(pidx_n[d]);
+            }
+            if (dim < img.dimension()) psv_n_img.push_back(xt::all());
 
             auto view_dc_n = xt::strided_view(distCrt, psv_n);
-            double distCrt_pn;
-            copy(view_dc_n.cbegin(), view_dc_n.cbegin()+1, &distCrt_pn);
+            double distCrt_pn = *view_dc_n.cbegin();
 
             auto view_lc_n = xt::strided_view(labCrt, psv_n);
-            double labCrt_pn;
-            copy(view_lc_n.cbegin(), view_lc_n.cbegin()+1, &labCrt_pn);
+            double labCrt_pn = *view_lc_n.cbegin();
 
-            auto view_img_n = xt::strided_view(img, psv_n);
-            double img_pn;
-            copy(view_img_n.cbegin(), view_img_n.cbegin()+1, &img_pn);
+            auto view_img_n = xt::strided_view(img, psv_n_img);
 
-            double dist = distCrt_p + sqrt(pow(img_pn - img_p,2));
+            double dist = distCrt_p;
+
+            for (int it = 0; it < feature_num; it++) dist +=  sqrt(pow(*(view_img_n.begin()+it) - *(view_img.begin()+it), 2));
+            
             if (dist < distCrt_pn)
             {
                 view_dc_n = dist;
