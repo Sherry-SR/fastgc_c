@@ -106,6 +106,7 @@ ndarray<double> get_img_neighbours(ndarray<double> const& mask){
 }
 
 ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& seeds, ndarray<double> &labPre, ndarray<double> &distPre, bool newSeg = true, bool verbose = true){
+//ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& seeds, ndarray<double> &labPre, ndarray<double> &distPre, ndarray<double> &distPath, bool newSeg = true, bool verbose = true){
     auto dim = seeds.dimension();
     auto shape = seeds.shape();
     double feature_num = (img.shape()).back();
@@ -225,9 +226,9 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
             double distCrt_pn = *view_dc_n.cbegin();
 
             auto view_lc_n = xt::strided_view(labCrt, psv_n);
-            double labCrt_pn = *view_lc_n.cbegin();
 
             auto view_img_n = xt::strided_view(img, psv_n_img);
+            // auto view_path_n = xt::strided_view(distPath, psv_n_img);
 
             double dist = distCrt_p;
 
@@ -239,6 +240,7 @@ ndarray<double> growcut_cpu(ndarray<double> const& img, ndarray<double> const& s
                 view_lc_n = labCrt_p;
                 // update fiponacci heap
                 if (verbose) cout << "updating distance " << distCrt_p << " with " << dist << endl;
+                // copy(pidx.begin(), pidx.end(), view_path_n.begin());                
                 fh.decreaseKey(heapNodes[pidx_n], dist);
             }
         }
