@@ -181,6 +181,6 @@ def test_growcut_fast_pelvis():
     #nib.save(nib.Nifti1Image(distPath.astype(float), img.affine), join(savepath, "fast_growcut_path.nii.gz"))
     print("results saved!")
 
-test_growcut_fast_list(filepath='/home/SENSETIME/shenrui/data/pelvis/dataset_all.txt', savepath='/home/SENSETIME/shenrui/data/pelvis_results')
+test_growcut_fast_list(filepath='/home/SENSETIME/shenrui/data/pelvis_resampled/dataset_all.txt', savepath='/home/SENSETIME/shenrui/data/pelvis_results')
 #test_growcut_fast_pelvis()
 #test_growcut_fast_teeth()
